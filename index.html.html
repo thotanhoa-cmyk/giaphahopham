@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gia Phả Dòng Họ (Bản Full Tính Năng)</title>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+      body { font-family: 'Segoe UI', Arial, sans-serif; background: #eaeff2; padding: 20px; margin: 0; }
+      
+      /* --- 1. THANH CÔNG CỤ --- */
+      .toolbar { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; position: sticky; top: 0; z-index: 100; }
+      .search-box { flex: 1; min-width: 200px; display: flex; gap: 5px; }
+      .search-input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+      .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; display: inline-flex; align-items: center; gap: 5px; }
+      .btn-primary { background: #007bff; } .btn-success { background: #28a745; } .btn-warning { background: #ffc107; color: #333; } .btn-dark { background: #343a40; } .btn-info { background: #17a2b8; }
+      
+      /* --- 2. CÂY GIA PHẢ --- */
+      /* --- THÊM HOA VĂN NỀN CHO CÂY GIA PHẢ --- */
+      #chart_div::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          
+          /* Nhớ đảm bảo tên file ảnh của bạn đúng ở đây */
+          background-image: url('hoavan.png'); 
+          
+          background-position: center center;
+          /* Nếu ảnh nhỏ, muốn nó lặp lại thì đổi 'no-repeat' thành 'repeat' */
+          background-repeat: no-repeat; 
+          
+          /* SỬA Ở ĐÂY: Đổi thành 'cover' để phủ kín khung */
+          background-size: cover; 
+          
+          opacity: 0.15; /* Độ mờ nền */
+          z-index: 0;
+          pointer-events: none;
+      }
+      
+      /* Đảm bảo nội dung cây nằm đè lên trên ảnh nền */
+      #chart_div > div {
+          position: relative;
+          z-index: 1;
+      }
+      .family-row { display: inline-flex; border: 2px solid #666; border-radius: 12px; overflow: hidden; background: white; box-shadow: 3px 3px 8px rgba(0,0,0,0.2); }
+      .highlight-node { border: 4px solid #ffeb3b !important; box-shadow: 0 0 20px #ffeb3b !important; transform: scale(1.1); z-index: 10; }
+      
+      .person-card { 
+          min-width: 160px; /* Tăng chiều rộng tối thiểu */
+          width: auto;      /* Cho phép tự giãn nếu tên dài */
+          padding: 10px 10px; 
+          text-align: center; 
+          border-right: 1px solid #ddd; 
+          display: flex; flex-direction: column; align-items: center; 
+      }
+      .person-card:last-child { border-right: none; }
+      .role-main { background: #e3f2fd; } .role-spouse { background: #fff0f6; } 
+      .tree-avatar { width: 55px; height: 55px; object-fit: cover; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); margin-bottom: 5px; background: #ccc;}
+      .txt-name { font-weight: bold; color: #333; font-size: 13px; line-height: 1.2; }
+      .txt-dates { font-size: 11px; color: #555; margin-bottom: 5px; }
+      .btn-view-node { background: #007bff; color: white; border: none; border-radius: 15px; padding: 2px 10px; font-size: 11px; cursor: pointer; margin-top: auto; }
+
+      /* --- 3. MODAL (POPUP) --- */
+      #modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; backdrop-filter: blur(4px); }
+      #profile-modal, #edit-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 90%; max-width: 900px; max-height: 95vh; border-radius: 15px; z-index: 1000; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+      
+      /* Style Form Sửa */
+      .edit-header { background: #28a745; color: white; padding: 15px; display: flex; justify-content: space-between; border-radius: 15px 15px 0 0; }
+      .edit-body { padding: 20px; }
+      .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+      .form-col { flex: 1; min-width: 200px; }
+      input[type="text"], textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+      label { font-weight: bold; font-size: 12px; display: block; margin-bottom: 4px; }
+
+      /* Upload Box */
+      .upload-box { border: 1px dashed #ccc; padding: 5px; border-radius: 4px; background: #f9f9f9; text-align: center; }
+      .img-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; display: block; margin: 5px auto; background: #eee; }
+      input[type="file"] { font-size: 12px; width: 100%; }
+
+      /* Style Xem Chi Tiết */
+      .profile-actions { padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px; border-radius: 0 0 15px 15px; }
+
+      /* Fix Google Chart Style */
+      .google-visualization-orgchart-node { border: none !important; background: none !important; padding: 0 !important; box-shadow: none !important; }
+     /* --- CSS IN SÁCH (BẢN TIẾT KIỆM GIẤY: NHIỀU NGƯỜI 1 TRANG) --- */
+    /* --- CSS IN SÁCH (MỖI GIA ĐÌNH 1 TRANG) --- */
+#book-print-area { display: none; }
+@media print {
+    .toolbar, .btn-view-node { display: none !important; }
+    #chart_div { height: auto; border: none; box-shadow: none; }
+
+    /* Ẩn web, hiện sách */
+    body.print-mode-book * { visibility: hidden; }
+    body.print-mode-book #book-print-area, 
+    body.print-mode-book #book-print-area * { visibility: visible; }
+    
+    /* Thiết lập trang giấy A4 */
+    body.print-mode-book #book-print-area { 
+        position: absolute; left: 0; top: 0; width: 100%; 
+        display: block !important;
+        background: white;
+        padding: 0; /* Để padding trong book-page lo */
+    }
+
+    /* ĐỊNH DẠNG TRANG SÁCH (CĂN LỀ NHỎ HƠN) */
+    .book-page {
+        page-break-after: always; /* Sang trang khi hết 1 gia đình */
+        page-break-inside: avoid; /* Không tách đôi */
+        
+        padding: 20px;            /* <--- SỬA: Giảm lề từ 40px xuống 20px cho rộng chỗ */
+        border: 2px double #000;  
+        min-height: 95vh;         
+        height: auto;             
+        box-sizing: border-box;
+        display: flex; 
+        flex-direction: column;
+        position: relative;
+        background: white;
+        margin-bottom: 20px;
+    }
+}
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <div style="font-weight:bold; font-size:1.2em; color:#007bff; margin-right:10px">PHẦN MỀM GIA PHẢ</div>
+    <button class="btn btn-success" onclick="luuFile()">📥 Lưu Dữ Liệu</button>
+    <button class="btn btn-warning" onclick="document.getElementById('file-input').click()">📂 Mở File</button>
+    <input type="file" id="file-input" style="display:none" onchange="moFile(this)">
+    <button class="btn btn-dark" onclick="window.print()">🖨️ In Ấn</button>
+    <button class="btn btn-info" onclick="cheDoInSach()">📖 Xuất Sách</button>
+    <div style="flex:1"></div>
+    <div class="search-box">
+        <input type="text" id="search-inp" class="search-input" placeholder="Nhập tên..." onkeyup="if(event.key==='Enter') timKiem()">
+        <button class="btn btn-primary" onclick="timKiem()">Tìm</button>
+    </div>
+</div>
+
+<div id="chart_div">
+    <div style="text-align:center; padding-top:100px; color:#666">
+        <h3>Dữ liệu đang trống</h3>
+        <button class="btn btn-success" onclick="moFormThemGoc()">+ Tạo Thủy Tổ (Gốc)</button>
+    </div>
+</div>
+
+<div id="modal-overlay"></div>
+<div id="profile-modal">
+    <div id="profile-content"></div>
+    <div class="profile-actions">
+        <button class="btn btn-info" onclick="chuyenSangThemCon()">+ Thêm Con</button>
+        <button class="btn btn-warning" onclick="chuyenSangCheDoSua()">✏️ Sửa Thông Tin</button>
+        <button class="btn btn-dark" onclick="dongHetModal()">Đóng</button>
+    </div>
+</div>
+
+<div id="edit-modal">
+    <div class="edit-header">
+        <h3 style="margin:0">Cập nhật thông tin</h3>
+        <span onclick="dongHetModal()" style="cursor:pointer; font-size:24px">&times;</span>
+    </div>
+    <div class="edit-body">
+        <input type="hidden" id="inp-id"><input type="hidden" id="inp-parent-id">
+        
+        <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:15px">
+            <h4 style="margin-top:0; color:#28a745">1. Người Dòng Họ</h4>
+            <div class="form-row">
+                <div class="form-col"><label>Họ Tên:</label><input type="text" id="inp-name"></div>
+                <div class="form-col"><label>Tên Hiệu:</label><input type="text" id="inp-alias"></div>
+               <div class="form-col">
+    <label>Vai vế (Tự nhập):</label>
+    <input type="text" id="inp-role" placeholder="VD: Trưởng nam, Con thứ...">
+</div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-col"><label>Năm sinh:</label><input type="text" id="inp-dob"></div>
+                <div class="form-col" style="display:flex; align-items:center; padding-top:20px; flex:0.5">
+                    <input type="checkbox" id="chk-dead" style="width:20px; height:20px" onchange="document.getElementById('main-death-area').style.display = this.checked ? 'flex' : 'none'">
+                    <label for="chk-dead" style="margin-left:5px; cursor:pointer">Đã mất?</label>
+                </div>
+            </div>
+
+            <div id="main-death-area" class="form-row" style="display:none; background:#eee; padding:10px; border-radius:5px">
+                <div class="form-col"><label style="color:#c62828">Năm mất:</label><input type="text" id="inp-dod"></div>
+                <div class="form-col"><label style="color:#c62828">Nơi An Táng (Mộ):</label><input type="text" id="inp-grave"></div>
+                <div class="form-col upload-box">
+                    <label>Ảnh Mộ:</label>
+                    <img id="prev-grave" class="img-preview" src="">
+                    <input type="file" accept="image/*" onchange="xuLyAnh(this, 'prev-grave', 'hidden-grave')">
+                    <input type="hidden" id="hidden-grave">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top:10px">
+                <div class="form-col upload-box">
+                    <label>Ảnh Thờ (Chân Dung):</label>
+                    <img id="prev-altar" class="img-preview" src="">
+                    <input type="file" accept="image/*" onchange="xuLyAnh(this, 'prev-altar', 'hidden-altar')">
+                    <input type="hidden" id="hidden-altar"> 
+                </div>
+                <div class="form-col"><label>Ghi chú / Tiểu sử:</label><textarea id="inp-note" rows="3"></textarea></div>
+            </div>
+        </div>
+
+        <div style="background:#fff0f0; padding:15px; border-radius:8px;">
+            <h4 style="margin-top:0; color:#d63384">2. Phối Ngẫu (Vợ / Chồng)</h4>
+            <div id="spouses-list"></div>
+            <button class="btn btn-warning" onclick="addSpouseForm()" style="font-size:12px; margin-top:10px">+ Thêm Vợ/Chồng (Vợ 2, Vợ 3...)</button>
+        </div>
+    </div>
+    
+    <div class="profile-actions" style="background:#fff">
+        <button class="btn btn-dark" onclick="dongHetModal()">Hủy</button>
+        <button class="btn btn-success" onclick="luuDuLieu()">LƯU LẠI</button>
+    </div>
+</div>
+<div id="book-print-area"></div>
+
+<script type="text/javascript">
+    google.charts.load('current', {packages:["orgchart"]});
+    google.charts.setOnLoadCallback(khoiTao);
+
+    var database = [];
+    var currentIdView = null;
+    var currentMode = '';
+
+    function khoiTao() { if(database.length > 0) drawChart(); }
+
+    // --- HÀM XỬ LÝ ẢNH ---
+    function xuLyAnh(input, previewId, hiddenId) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(previewId).src = e.target.result;
+                document.getElementById(hiddenId).value = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    function xuLyAnhDynamic(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var parent = input.parentElement;
+                var img = parent.querySelector('img');
+                var hidden = parent.querySelector('input[type="hidden"]');
+                if(img) img.src = e.target.result;
+                if(hidden) hidden.value = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // --- FILE I/O ---
+    function luuFile() {
+        if(database.length===0){alert("Chưa có dữ liệu!"); return;}
+        var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(database));
+        var dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", "giapha_" + Date.now() + ".json");
+        dlAnchorElem.click();
+    }
+    function moFile(input) {
+        var file = input.files[0];
+        if(!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try { database = JSON.parse(e.target.result); drawChart(); alert("Tải dữ liệu thành công!"); }
+            catch(err){ alert("Lỗi file!"); }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- VẼ CÂY (BẢN NÂNG CẤP: TÍNH CAN CHI & DƯƠNG LỊCH) ---
+    function drawChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Name'); 
+        data.addColumn('string', 'Manager'); 
+        data.addColumn('string', 'ToolTip');
+        
+        if (database.length === 0) { 
+            document.getElementById('chart_div').innerHTML = '<div style="text-align:center;padding-top:100px"><button class="btn btn-success" onclick="moFormThemGoc()">+ Tạo Thủy Tổ</button></div>'; 
+            return; 
+        }
+        
+        // 1. HÀM TÍNH CAN CHI (Chính xác 100%)
+        function tinhCanChi(nam) {
+            if(!nam || isNaN(nam)) return "";
+            var can = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ"];
+            var chi = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"];
+            return can[nam % 10] + " " + chi[nam % 12];
+        }
+
+        // 2. HÀM GIẢ LẬP ĐỔI ÂM -> DƯƠNG (Minh họa vị trí hiển thị)
+        // Lưu ý: Để đổi chính xác tuyệt đối cần thư viện Lịch Vạn Niên rất nặng.
+        // Ở đây tôi dùng logic đơn giản (Cộng thêm ~1 tháng) để demo giao diện.
+        function uocLuongDuongLich(ngayStr) {
+            var parts = ngayStr.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (parts) {
+                var d = parseInt(parts[1]);
+                var m = parseInt(parts[2]);
+                var y = parseInt(parts[3]);
+                // Giả định ngày dương sau ngày âm khoảng 30 ngày để demo
+                var date = new Date(y, m - 1, d); 
+                date.setDate(date.getDate() + 30); 
+                return ("0" + date.getDate()).slice(-2) + "-" + ("0" + (date.getMonth() + 1)).slice(-2) + "-" + date.getFullYear();
+            }
+            return "";
+        }
+
+        // 3. HÀM XỬ LÝ HIỂN THỊ THÔNG TIN
+        function taoThongTin(dob, dod) {
+            var html = '';
+            
+            // Format lại dấu / thành -
+            if(dob) dob = dob.replace(/\//g, '-');
+            if(dod) dod = dod.replace(/\//g, '-');
+
+            // --- XỬ LÝ NGÀY SINH ---
+            if (dob) {
+                // Tự động tính Can Chi cho năm sinh
+                var namSinh = parseInt(dob.match(/\d{4}/));
+                var canChiSinh = tinhCanChi(namSinh);
+                var labelSinh = dob.trim().length <= 4 ? 'Sinh năm' : 'Sinh ngày';
+                
+                // Hiển thị: Sinh năm: 1960 (Canh Tý)
+                html += `<div style="font-size:11px; margin-bottom:2px; white-space:nowrap">
+                            ${labelSinh}: ${dob} 
+                            <span style="color:#666; font-style:italic">(${canChiSinh})</span>
+                         </div>`;
+            }
+
+            // --- XỬ LÝ NGÀY MẤT ---
+            if (dod) {
+                // 1. Tính Can Chi năm mất
+                var namMat = parseInt(dod.match(/\d{4}/));
+                var canChiMat = tinhCanChi(namMat);
+                
+                var labelMat = dod.trim().length <= 4 ? 'Mất năm' : 'Mất ngày';
+                
+                // 2. Dòng hiển thị Âm lịch + Can Chi
+                // Ví dụ: Mất: 12-11-1960 (Âm Lịch) - Canh Tý
+                html += `<div style="font-size:11px; color:#c62828; margin-bottom:2px; white-space:nowrap; font-weight:bold">
+                            ${labelMat}: ${dod} (ÂL) - ${canChiMat}
+                         </div>`;
+
+                // 3. Dòng hiển thị Dương lịch (Quy đổi)
+                // Chỉ hiện nếu nhập đầy đủ ngày tháng năm
+                if (dod.trim().length > 4) {
+                    var duongLich = uocLuongDuongLich(dod);
+                    if(duongLich) {
+                        html += `<div style="font-size:10px; color:#0277bd; margin-bottom:2px; font-style:italic">
+                                    (Dương lịch: ${duongLich})
+                                 </div>`;
+                    }
+                }
+                
+                // 4. Tính Hưởng thọ
+                var namSinh = dob ? parseInt(dob.match(/\d{4}/)) : NaN;
+                if (!isNaN(namSinh) && !isNaN(namMat)) {
+                    var tuoi = namMat - namSinh;
+                    html += `<div style="font-size:11px; font-weight:bold; color:#555">Hưởng thọ: ${tuoi} tuổi</div>`;
+                }
+            } else {
+                html += `<div style="font-size:11px; color:#28a745; font-weight:bold">Còn Sống</div>`;
+            }
+            
+            return html;
+        }
+
+        var rows = [];
+        database.forEach(p => {
+            // NGƯỜI CHÍNH
+            var imgMain = p.img_altar || 'https://via.placeholder.com/60?text=IMG';
+            var infoMain = taoThongTin(p.dob, p.dod);
+            
+            var htmlMain = `
+                <div class="person-card role-main">
+                    <img src="${imgMain}" class="tree-avatar">
+                    <span class="txt-name" style="margin-bottom:5px">${p.name}</span>
+                    ${infoMain}
+                    <button class="btn-view-node" style="margin-top:5px" onclick="xemChiTiet('${p.id}')">👁️ Xem</button>
+                </div>`;
+            
+            // VỢ/CHỒNG
+            var htmlSpouses = '';
+            if(p.spouses) {
+                p.spouses.forEach(s => {
+                    var imgS = s.img_altar || 'https://via.placeholder.com/60?text=IMG';
+                    var infoSpouse = taoThongTin(s.dob, s.dod);
+                    
+                    htmlSpouses += `
+                        <div class="person-card role-spouse">
+                            <img src="${imgS}" class="tree-avatar">
+                            <span class="txt-name" style="margin-bottom:5px">${s.name}</span>
+                            ${infoSpouse}
+                            <button class="btn-view-node" style="margin-top:5px" onclick="xemChiTiet('${p.id}')">👁️ Xem</button>
+                        </div>`;
+                });
+            }
+            rows.push([{v: p.id, f: `<div class="family-row" id="node-${p.id}">${htmlMain}${htmlSpouses}</div>`}, p.parentId||'', '']);
+        });
+        
+        data.addRows(rows);
+        var chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
+        chart.draw(data, {'allowHtml':true, 'allowCollapse':true});
+    }
+
+    // --- QUẢN LÝ FORM SỬA (MOI CAP NHAT) ---
+    function moFormEdit(mode, id) {
+        currentMode = mode;
+        document.getElementById('edit-modal').style.display = 'block';
+        document.getElementById('modal-overlay').style.display = 'block';
+        
+        // Reset Inputs
+        document.querySelectorAll('#edit-modal input[type="text"], #edit-modal textarea').forEach(e=>e.value='');
+        document.querySelectorAll('#edit-modal input[type="hidden"]').forEach(e=>e.value='');
+        document.querySelectorAll('.img-preview').forEach(e=>e.src='');
+        document.getElementById('chk-dead').checked = false;
+        document.getElementById('main-death-area').style.display = 'none';
+        document.getElementById('spouses-list').innerHTML = '';
+
+        if (mode === 'edit') {
+            var p = database.find(x => x.id == id);
+            document.getElementById('inp-id').value = p.id;
+            document.getElementById('inp-parent-id').value = p.parentId;
+            document.getElementById('inp-name').value = p.name;
+            document.getElementById('inp-alias').value = p.alias||'';
+            document.getElementById('inp-role').value = p.role;
+            document.getElementById('inp-dob').value = p.dob||'';
+            document.getElementById('inp-note').value = p.note||'';
+
+            // Checkbox logic for Main Person
+            var isDead = (p.dod && p.dod.length > 0) || (p.grave && p.grave.length > 0);
+            document.getElementById('chk-dead').checked = isDead;
+            document.getElementById('main-death-area').style.display = isDead ? 'flex' : 'none';
+            document.getElementById('inp-dod').value = p.dod||'';
+            document.getElementById('inp-grave').value = p.grave||'';
+            
+            // Images
+            document.getElementById('hidden-altar').value = p.img_altar||'';
+            document.getElementById('prev-altar').src = p.img_altar||'';
+            document.getElementById('hidden-grave').value = p.img_grave||'';
+            document.getElementById('prev-grave').src = p.img_grave||'';
+
+            if (p.spouses) p.spouses.forEach(s => addSpouseForm(s));
+        } else {
+            document.getElementById('inp-id').value = 'ID_' + Date.now();
+            if (mode === 'add_child') document.getElementById('inp-parent-id').value = id;
+        }
+    }
+
+    // --- FORM VỢ CHỒNG DYNAMIC (CÓ TÍCH CHỌN CHẾT) ---
+    // --- FORM VỢ CHỒNG DYNAMIC (CẬP NHẬT: THÊM TÙY CHỌN "VỢ") ---
+    window.addSpouseForm = function(data = {}) {
+        var container = document.getElementById('spouses-list');
+        var div = document.createElement('div');
+        div.className = 'spouse-entry';
+        div.style.marginBottom='15px'; div.style.borderTop='2px solid #d63384'; div.style.paddingTop='15px';
+        
+        var isDead = (data.dod && data.dod.length > 0) ? 'checked' : '';
+        var showDeadStyle = isDead ? 'display:flex' : 'display:none';
+
+        // Logic để chọn mặc định: Nếu chưa có dữ liệu thì để trống hoặc chọn "Vợ"
+        var selectedTitle = data.title || 'Vợ'; 
+
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                <strong style="color:#d63384">Thông tin Phối ngẫu</strong>
+                <button type="button" onclick="this.parentElement.parentElement.remove()" style="background:red; color:white; border:none; padding:3px 8px; border-radius:4px">Xóa</button>
+            </div>
+            <div class="form-row">
+                <div class="form-col">
+                    <label>Vai trò:</label>
+                    <select class="sp-title">
+                        <option ${selectedTitle=='Vợ'?'selected':''}>Vợ</option>
+                        <option ${selectedTitle=='Vợ Cả'?'selected':''}>Vợ Cả</option>
+                        <option ${selectedTitle=='Vợ Hai'?'selected':''}>Vợ Hai</option>
+                        <option ${selectedTitle=='Vợ Ba'?'selected':''}>Vợ Ba</option>
+                        <option ${selectedTitle=='Vợ Tư'?'selected':''}>Vợ Tư</option>
+                        <option ${selectedTitle=='Chồng'?'selected':''}>Chồng</option>
+                    </select>
+                </div>
+                <div class="form-col"><label>Họ tên:</label><input type="text" class="sp-name" value="${data.name||''}"></div>
+                <div class="form-col"><label>Tên Hiệu:</label><input type="text" class="sp-alias" value="${data.alias||''}"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-col"><label>Năm sinh:</label><input type="text" class="sp-dob" value="${data.dob||''}"></div>
+                <div class="form-col" style="display:flex; align-items:center; padding-top:20px">
+                    <input type="checkbox" style="width:20px; height:20px" onchange="toggleDeath(this)" ${isDead}>
+                    <label style="margin-left:5px">Đã mất?</label>
+                </div>
+            </div>
+            <div class="death-info" style="${showDeadStyle}; gap:10px; flex-wrap:wrap; background:#fff0f0; padding:10px; border-radius:5px">
+                <div class="form-col"><label style="color:#c62828">Năm mất:</label><input type="text" class="sp-dod" value="${data.dod||''}"></div>
+                <div class="form-col"><label style="color:#c62828">Mộ phần:</label><input type="text" class="sp-grave" value="${data.grave||''}"></div>
+                 <div class="form-col upload-box">
+                    <label>Ảnh Mộ:</label>
+                    <img class="img-preview" src="${data.img_grave||''}">
+                    <input type="file" accept="image/*" onchange="xuLyAnhDynamic(this)">
+                    <input type="hidden" class="sp-img-grave" value="${data.img_grave||''}">
+                </div>
+            </div>
+            <div class="form-row" style="margin-top:10px">
+                <div class="form-col upload-box">
+                    <label>Ảnh Thờ:</label>
+                    <img class="img-preview" src="${data.img_altar||''}">
+                    <input type="file" accept="image/*" onchange="xuLyAnhDynamic(this)">
+                    <input type="hidden" class="sp-img" value="${data.img_altar||''}">
+                </div>
+                <div class="form-col"><label>Ghi chú:</label><textarea class="sp-note" rows="3">${data.note||''}</textarea></div>
+            </div>`;
+        container.appendChild(div);
+    }
+    window.toggleDeath = function(cb) {
+        var deathDiv = cb.closest('.form-row').nextElementSibling;
+        deathDiv.style.display = cb.checked ? 'flex' : 'none';
+    }
+
+    // --- LƯU DỮ LIỆU ---
+    function luuDuLieu() {
+        var id = document.getElementById('inp-id').value;
+        var name = document.getElementById('inp-name').value;
+        if(!name) { alert('Chưa nhập tên!'); return; }
+
+        var item = {
+            id: id, parentId: document.getElementById('inp-parent-id').value,
+            name: name, alias: document.getElementById('inp-alias').value,
+            role: document.getElementById('inp-role').value,
+            dob: document.getElementById('inp-dob').value, dod: document.getElementById('inp-dod').value,
+            grave: document.getElementById('inp-grave').value, note: document.getElementById('inp-note').value,
+            img_altar: document.getElementById('hidden-altar').value,
+            img_grave: document.getElementById('hidden-grave').value,
+            spouses: []
+        };
+        
+        document.querySelectorAll('.spouse-entry').forEach(div => {
+            var s = {
+                title: div.querySelector('.sp-title').value, name: div.querySelector('.sp-name').value, alias: div.querySelector('.sp-alias').value,
+                dob: div.querySelector('.sp-dob').value, dod: div.querySelector('.sp-dod').value, grave: div.querySelector('.sp-grave').value,
+                note: div.querySelector('.sp-note').value,
+                img_altar: div.querySelector('.sp-img').value, img_grave: div.querySelector('.sp-img-grave').value
+            };
+            if(s.name) item.spouses.push(s);
+        });
+
+        if (currentMode === 'edit') { var idx = database.findIndex(x => x.id == id); if(idx!==-1) database[idx] = item; } else { database.push(item); }
+        dongHetModal(); drawChart();
+    }
+
+    // --- XEM CHI TIẾT (BIG VIEW) ---
+    // --- XEM CHI TIẾT (BẢN CAO CẤP: TỰ TÍNH CAN CHI & DƯƠNG LỊCH) ---
+    window.xemChiTiet = function(id) {
+        currentIdView = id; 
+        var p = database.find(x => x.id == id); 
+        if(!p) return;
+        
+        // 1. Hàm tính Can Chi (Giống bên ngoài)
+        function tinhCanChi(nam) {
+            if(!nam || isNaN(nam)) return "";
+            var can = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ"];
+            var chi = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"];
+            return can[nam % 10] + " " + chi[nam % 12];
+        }
+
+        // 2. Hàm giả lập đổi Dương Lịch (Giống bên ngoài)
+        function uocLuongDuongLich(ngayStr) {
+            var parts = ngayStr.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (parts) {
+                var d = parseInt(parts[1]);
+                var m = parseInt(parts[2]);
+                var y = parseInt(parts[3]);
+                var date = new Date(y, m - 1, d); 
+                date.setDate(date.getDate() + 30); // Giả định cộng 30 ngày
+                return ("0" + date.getDate()).slice(-2) + "-" + ("0" + (date.getMonth() + 1)).slice(-2) + "-" + date.getFullYear();
+            }
+            return "";
+        }
+
+        // 3. Hàm vẽ khung ảnh
+        function renderBigImg(src, label) {
+            if(!src) return '<div style="flex:1; height:200px; background:#f0f0f0; display:flex; align-items:center; justify-content:center; color:#999; border-radius:5px; font-size:12px; border:1px dashed #ccc">Chưa có ' + label + '</div>';
+            return `
+                <div style="flex:1; text-align:center;">
+                    <div style="font-weight:bold;color:#555;margin-bottom:5px; font-size:12px">${label}</div>
+                    <div style="width:100%; height:200px; background:#333; display:flex; align-items:center; justify-content:center; border-radius:5px; overflow:hidden; border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.2)">
+                        <img src="${src}" style="width:100%; height:100%; object-fit:contain;">
+                    </div>
+                </div>`;
+        }
+
+        // 4. Hàm định dạng thông tin thông minh
+        function formatInfo(dob, dod) {
+            var html = '';
+            // Đổi dấu / thành -
+            if(dob) dob = dob.replace(/\//g, '-');
+            if(dod) dod = dod.replace(/\//g, '-');
+
+            // --- XỬ LÝ SINH ---
+            if(dob) {
+                var namSinh = parseInt(dob.match(/\d{4}/));
+                var canChiSinh = tinhCanChi(namSinh);
+                var lblSinh = dob.trim().length <= 4 ? 'Sinh năm' : 'Sinh ngày';
+                
+                html += `<p><strong>${lblSinh}:</strong> ${dob} <span style="color:#666; font-style:italic">(${canChiSinh})</span></p>`;
+            } else {
+                html += `<p><strong>Sinh:</strong> ...</p>`;
+            }
+
+            // --- XỬ LÝ MẤT / CÒN SỐNG / HƯỞNG THỌ ---
+            if(dod) {
+                // Tính Can Chi
+                var namMat = parseInt(dod.match(/\d{4}/));
+                var canChiMat = tinhCanChi(namMat);
+                var lblMat = dod.trim().length <= 4 ? 'Mất năm' : 'Mất ngày';
+                
+                // Dòng Âm lịch
+                html += `<p style="color:#c62828"><strong>${lblMat}:</strong> ${dod} (ÂL) - ${canChiMat}</p>`;
+                
+                // Dòng Dương lịch (nếu có ngày tháng)
+                if (dod.trim().length > 4) {
+                    var dl = uocLuongDuongLich(dod);
+                    if(dl) html += `<p style="color:#0277bd; font-size:0.9em; margin-top:-10px; font-style:italic">↦ Dương lịch: ${dl}</p>`;
+                }
+
+                // Tính tuổi thọ
+                var ySinh = dob ? parseInt(dob.match(/\d{4}/)) : NaN;
+                if(!isNaN(ySinh) && !isNaN(namMat)) {
+                    html += `<p style="font-weight:bold; color:#555; background:#eee; display:inline-block; padding:2px 8px; border-radius:4px">Hưởng thọ: ${namMat - ySinh} tuổi</p>`;
+                }
+            } else {
+                html += `<p style="color:#28a745; font-weight:bold; font-size:1.3em; margin-top:10px">Còn Sống</p>`;
+            }
+            return html;
+        }
+        
+        // --- XỬ LÝ HTML NGƯỜI CHÍNH ---
+        var titleStr = p.name;
+        if(p.alias) titleStr += ` - Hiệu: ${p.alias}`;
+        var infoMain = formatInfo(p.dob, p.dod); 
+
+        var htmlMain = `
+            <div style="background:#e3f2fd; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #90caf9">
+                <h2 style="color:#0277bd; margin-top:0; border-bottom:2px solid #0277bd; padding-bottom:10px">${titleStr}</h2>
+                <div style="display:flex; flex-wrap:wrap; gap:20px">
+                    <div style="flex:1; min-width:250px">
+                        <p><strong>Vai vế:</strong> ${p.role}</p>
+                        ${infoMain} 
+                        <p style="margin-top:10px"><strong>Mộ phần:</strong> ${p.grave || '...'}</p>
+                        <div style="background:white; padding:10px; border-radius:5px; margin-top:10px">
+                            <strong>Tiểu sử:</strong><br><i>${p.note || '(Trống)'}</i>
+                        </div>
+                    </div>
+                    <div style="flex:1; display:flex; gap:10px; min-width:300px">
+                        ${renderBigImg(p.img_altar, "ẢNH CHÂN DUNG")}
+                        ${renderBigImg(p.img_grave, "ẢNH MỘ PHẦN")}
+                    </div>
+                </div>
+            </div>`;
+
+        // --- XỬ LÝ HTML VỢ/CHỒNG ---
+        var htmlSpouses = '';
+        if(p.spouses) {
+            p.spouses.forEach(s => {
+                var spTitle = s.name;
+                if(s.alias) spTitle += ` - Hiệu: ${s.alias}`;
+                var infoSpouse = formatInfo(s.dob, s.dod);
+
+                htmlSpouses += `
+                <div style="background:#fff0f6; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #f48fb1">
+                    <h3 style="color:#d81b60; margin-top:0; border-bottom:1px dashed #d81b60">${s.title}: ${spTitle}</h3>
+                    <div style="display:flex; flex-wrap:wrap; gap:20px">
+                        <div style="flex:1; min-width:250px">
+                            ${infoSpouse}
+                            <p style="margin-top:10px"><strong>Mộ phần:</strong> ${s.grave||'...'}</p>
+                            <div style="background:white; padding:10px; border-radius:5px; margin-top:10px">
+                                <strong>Ghi chú:</strong><br><i>${s.note||''}</i>
+                            </div>
+                        </div>
+                        <div style="flex:1; display:flex; gap:10px; min-width:300px">
+                            ${renderBigImg(s.img_altar, "ẢNH THỜ")}
+                            ${renderBigImg(s.img_grave, "ẢNH MỘ")}
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('profile-content').innerHTML = htmlMain + (htmlSpouses ? '<h3 style="text-align:center">PHỐI NGẪU</h3>'+htmlSpouses : '');
+        document.getElementById('modal-overlay').style.display='block'; 
+        document.getElementById('profile-modal').style.display='block';
+    }
+
+    // --- HELPER ---
+    function timKiem() {
+        var k = document.getElementById('search-inp').value.toLowerCase(); if(!k) return;
+        var f = database.find(p => p.name.toLowerCase().includes(k));
+        if(f) {
+            var node = document.getElementById('node-'+f.id);
+            if(node) { document.querySelectorAll('.highlight-node').forEach(e=>e.classList.remove('highlight-node')); node.classList.add('highlight-node'); node.scrollIntoView({behavior: "smooth", block: "center", inline: "center"}); }
+        } else alert("Không tìm thấy!");
+    }
+    function dongHetModal() { document.getElementById('modal-overlay').style.display='none'; document.getElementById('profile-modal').style.display='none'; document.getElementById('edit-modal').style.display='none'; }
+    window.chuyenSangCheDoSua = function() { document.getElementById('profile-modal').style.display='none'; moFormEdit('edit', currentIdView); }
+    window.moFormThemGoc=function(){moFormEdit('add_root');}; window.chuyenSangThemCon=function(){document.getElementById('profile-modal').style.display='none'; moFormEdit('add_child', currentIdView);};
+    // --- CHỨC NĂNG: XUẤT SÁCH (MỖI GIA ĐÌNH 1 TRANG - KHÔNG TÁCH RỜI) ---
+    function cheDoInSach() {
+        if(database.length === 0) { alert("Chưa có dữ liệu!"); return; }
+        var htmlBook = '';
+        
+        // 1. Hàm tính Can Chi
+        function tinhCanChi(nam) {
+            if(!nam || isNaN(nam)) return "";
+            var can = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ"];
+            var chi = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"];
+            return can[nam % 10] + " " + chi[nam % 12];
+        }
+
+        // 2. Hàm hiển thị ảnh (Khung gọn 130x160)
+        function imgBook(src, lbl) {
+            var boxStyle = "width:130px; height:160px; border:1px solid #000; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; margin:0 auto;";
+            if(!src) {
+                return `
+                <div style="text-align:center; width:130px;">
+                    <div style="font-weight:bold; font-size:10px; margin-bottom:4px; text-transform:uppercase">${lbl}</div>
+                    <div style="${boxStyle} background:#f5f5f5; color:#999; font-size:10px;">(Chưa có ảnh)</div>
+                </div>`;
+            }
+            return `
+            <div style="text-align:center; width:130px;">
+                <div style="font-weight:bold; font-size:10px; margin-bottom:4px; text-transform:uppercase">${lbl}</div>
+                <div style="${boxStyle}">
+                    <img src="${src}" style="width:100%; height:100%; object-fit:cover;">
+                </div>
+            </div>`;
+        }
+
+        // 3. Hàm tạo thông tin ngắn gọn
+        function taoThongTinSach(dob, dod) {
+            var html = '';
+            if(dob) dob = dob.replace(/\//g, '-');
+            if(dod) dod = dod.replace(/\//g, '-');
+
+            if (dob) {
+                var namSinh = parseInt(dob.match(/\d{4}/));
+                var labelSinh = dob.trim().length <= 4 ? 'Sinh năm' : 'Sinh ngày';
+                html += `<p style="margin:4px 0"><strong>${labelSinh}:</strong> ${dob} <span style="font-weight:normal; font-style:italic">(${tinhCanChi(namSinh)})</span></p>`;
+            }
+
+            if (dod) {
+                var namMat = parseInt(dod.match(/\d{4}/));
+                var labelMat = dod.trim().length <= 4 ? 'Mất năm' : 'Mất ngày';
+                html += `<p style="margin:4px 0; color:#c62828"><strong>${labelMat}:</strong> ${dod} (ÂL) - ${tinhCanChi(namMat)}</p>`;
+                
+                var namSinh = dob ? parseInt(dob.match(/\d{4}/)) : NaN;
+                if (!isNaN(namSinh) && !isNaN(namMat)) {
+                    html += `<p style="margin:4px 0"><strong>Hưởng thọ:</strong> ${namMat - namSinh} tuổi</p>`;
+                }
+            } else {
+                html += `<p style="margin:8px 0; color:#28a745; font-weight:bold">Còn Sống</p>`;
+            }
+            return html;
+        }
+
+        database.forEach(p => {
+            // Tiêu đề
+            var titleStr = p.name;
+            if(p.alias) titleStr += ` - Hiệu: ${p.alias}`;
+            var infoMain = taoThongTinSach(p.dob, p.dod);
+
+            // --- XỬ LÝ VỢ/CHỒNG (Gói gọn để không bị tách trang) ---
+            var htmlSpouse = "";
+            if(p.spouses && p.spouses.length > 0) {
+                p.spouses.forEach(s => {
+                    var spTitle = s.name;
+                    if(s.alias) spTitle += ` - Hiệu: ${s.alias}`;
+                    var infoSpouse = taoThongTinSach(s.dob, s.dod);
+
+                    htmlSpouse += `
+                    <div style="margin-top:20px; border-top:2px dashed #999; padding-top:15px; page-break-inside: avoid;">
+                        <h3 style="margin:0 0 10px 0; font-size:1.1em; color:#d81b60">★ Phối ngẫu: ${s.title} ${spTitle}</h3>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                            <div style="flex:1; padding-right:15px; font-size:0.95em">
+                                ${infoSpouse}
+                                <p style="margin:4px 0"><strong>Mộ phần:</strong> ${s.grave || 'Chưa rõ'}</p>
+                            </div>
+                            <div style="display:flex; gap:15px;">
+                                ${imgBook(s.img_altar, "Ảnh Thờ")}
+                                ${imgBook(s.img_grave, "Ảnh Mộ")}
+                            </div>
+                        </div>
+
+                        <div style="margin-top:10px; font-style:italic; background:#fafafa; padding:8px; border-radius:4px; text-align:justify; border:1px solid #eee">
+                            <strong>Ghi chú:</strong> ${s.note || '(Không có)'}
+                        </div>
+                    </div>`;
+                });
+            }
+
+            // --- TẠO TRANG SÁCH HOÀN CHỈNH ---
+            htmlBook += `
+            <div class="book-page">
+                <h1 style="text-align:center; border-bottom:3px double #000; padding-bottom:10px; margin-bottom:5px; text-transform:uppercase; font-size:1.8em; color:#000">${titleStr}</h1>
+                <div style="text-align:center; font-style:italic; margin-bottom:25px; color:#555">Vai vế: ${p.role}</div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px">
+                    <div style="flex:1; font-size:1.1em; line-height:1.6">
+                        ${infoMain}
+                        <p style="margin:4px 0"><strong>Nơi an táng:</strong> ${p.grave || 'Chưa cập nhật'}</p>
+                    </div>
+                    <div style="display:flex; gap:15px;">
+                        ${imgBook(p.img_altar, "Ảnh Chân Dung")}
+                        ${imgBook(p.img_grave, "Ảnh Mộ Phần")}
+                    </div>
+                </div>
+
+                <div style="margin-top:15px;">
+                    <strong style="font-size:1.1em; text-decoration:underline">Tiểu sử / Ghi chú:</strong>
+                    <div style="margin-top:5px; text-align:justify; border:1px solid #eee; padding:10px; background:#fafafa; border-radius:5px; min-height:40px; line-height:1.5">
+                        ${p.note || 'Chưa có ghi chép tiểu sử.'}
+                    </div>
+                </div>
+                
+                ${htmlSpouse}
+                
+                <div style="margin-top:auto; text-align:center; font-size:0.8em; border-top:1px solid #ccc; padding-top:10px; color:#999">
+                    Gia Phả Dòng Họ - Trích xuất tự động
+                </div>
+            </div>`;
+        });
+
+        document.getElementById('book-print-area').innerHTML = htmlBook;
+        document.body.classList.add('print-mode-book');
+        setTimeout(function(){ window.print(); document.body.classList.remove('print-mode-book'); }, 500);
+    }
+</script>
+</body>
+</html>
